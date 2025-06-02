@@ -20,6 +20,33 @@ try:
     import numpy as np
     from PIL import Image
     OCR_AVAILABLE = True
+    
+    # 🔧 Windows環境下設定Tesseract執行檔路徑
+    import platform
+    import os
+    if platform.system() == "Windows":
+        # 常見的Tesseract安裝路徑
+        tesseract_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            r"C:\Tesseract-OCR\tesseract.exe"
+        ]
+        
+        for path in tesseract_paths:
+            if Path(path).exists():
+                pytesseract.pytesseract.tesseract_cmd = path
+                print(f"✅ 找到Tesseract執行檔: {path}")
+                
+                # 🔧 同時設定TESSDATA_PREFIX環境變數
+                tessdata_dir = str(Path(path).parent / "tessdata")
+                if Path(tessdata_dir).exists():
+                    os.environ['TESSDATA_PREFIX'] = tessdata_dir
+                    print(f"✅ 設定TESSDATA_PREFIX: {tessdata_dir}")
+                
+                break
+        else:
+            print("⚠️  未在常見路徑找到Tesseract，請確認安裝位置")
+            
 except ImportError:
     OCR_AVAILABLE = False
     warnings.warn("OCR功能不可用: 請安裝 pytesseract, opencv-python-headless 和 Pillow")
@@ -661,12 +688,12 @@ class GRIMarkdownToJsonConverter:
         return standard_formats or title_formats
     
     def extract_text_from_image(self, image_path):
-        """使用Tesseract OCR從圖片中提取文字（針對條目項目優化）"""
+        """使用Tesseract OCR從圖片中提取文字（使用最佳的超高解析度策略）"""
         if not self.ocr_available or not OCR_AVAILABLE:
             return ""
         
         try:
-            print(f"🔍 正在從圖片提取文字: {image_path}")
+            print(f"🔍 正在從圖片提取繁體中文文字: {image_path}")
             
             # 讀取圖片
             image = cv2.imread(str(image_path))
@@ -674,42 +701,254 @@ class GRIMarkdownToJsonConverter:
                 print(f"❌ 無法讀取圖片: {image_path}")
                 return ""
             
-            # 圖片預處理以提高OCR效果
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            print("🎯 使用超高解析度處理策略")
+            print("-" * 40)
             
-            # 降噪處理
-            denoised = cv2.medianBlur(gray, 5)
+            # 使用最佳的超高解析度預處理策略
+            processed_image = self.preprocess_image_super_resolution(image)
             
-            # 二值化處理
-            _, binary = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # 使用優化的OCR配置
+            result = self.ocr_with_optimized_configs(processed_image, strategy="super_resolution")
             
-            # 形態學操作去除噪點
-            kernel = np.ones((1, 1), np.uint8)
-            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-            
-            # 轉換為PIL Image格式
-            pil_image = Image.fromarray(cleaned)
-            
-            # 設定Tesseract配置
-            # 使用繁體中文和英文，優化為文字行識別
-            config = '--oem 3 --psm 6 -l chi_tra+eng'
-            
-            # 使用Tesseract提取文字
-            extracted_text = pytesseract.image_to_string(pil_image, config=config)
-            
-            if extracted_text.strip():
-                # 清理提取的文字
-                cleaned_text = self.clean_ocr_text(extracted_text)
-                print(f"✅ 成功提取文字（{len(cleaned_text)}字元）")
-                print(f"   前100字元: {cleaned_text[:100]}{'...' if len(cleaned_text) > 100 else ''}")
-                return cleaned_text
+            if result and result.strip():
+                print(f"✅ OCR成功提取繁體中文文字（{len(result)}字元）")
+                print(f"📝 OCR結果:")
+                print(f"{result}")
+                print("-" * 40)
+                
+                return result.strip()
             else:
-                print(f"⚠️  未能從圖片中提取到文字")
+                print("❌ OCR未能提取到有效文字")
                 return ""
                 
         except Exception as e:
             print(f"❌ OCR處理失敗: {e}")
             return ""
+    
+    def preprocess_image_super_resolution(self, image):
+        """超高解析度圖片預處理策略（最佳效果）"""
+        # 轉換為灰階
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # 🔍 極大放大圖片以提高細節
+        height, width = gray.shape
+        scale_factor = max(6.0, 1000/min(height, width))  # 確保至少1000像素
+        new_width = int(width * scale_factor)
+        new_height = int(height * scale_factor)
+        enlarged = cv2.resize(gray, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+        
+        # 📊 溫和的對比度增強
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(enlarged)
+        
+        # 🔧 保留邊緣的降噪
+        denoised = cv2.medianBlur(enhanced, 3)
+        
+        print(f"📏 超高解析度處理: {width}x{height} -> {new_width}x{new_height}")
+        return denoised
+    
+    def ocr_with_optimized_configs(self, processed_image, strategy="default"):
+        """使用優化的Tesseract配置進行OCR"""
+        from PIL import Image
+        pil_image = Image.fromarray(processed_image)
+        
+        # 📋 針對繁體中文高度優化的配置
+        configs = [
+            # 配置1: 高精度單行處理
+            ('--oem 3 --psm 6 -l chi_tra -c preserve_interword_spaces=1', "高精度單行"),
+            
+            # 配置2: 垂直文字專用
+            ('--oem 3 --psm 5 -l chi_tra -c preserve_interword_spaces=1', "垂直文字專用"),
+            
+            # 配置3: 稀疏文字處理
+            ('--oem 3 --psm 8 -l chi_tra', "稀疏文字處理"),
+            
+            # 配置4: 自動分割優化
+            ('--oem 3 --psm 3 -l chi_tra -c preserve_interword_spaces=1', "自動分割優化"),
+            
+            # 配置5: 混合語言處理
+            ('--oem 3 --psm 6 -l chi_tra+eng', "混合語言處理"),
+            
+            # 配置6: 單字符優化
+            ('--oem 3 --psm 10 -l chi_tra', "單字符優化"),
+            
+            # 配置7: 原始LSTM引擎
+            ('--oem 1 --psm 6 -l chi_tra', "LSTM引擎")
+        ]
+        
+        best_result = ""
+        best_config_name = ""
+        best_length = 0
+        
+        for config, config_name in configs:
+            try:
+                result = pytesseract.image_to_string(pil_image, config=config)
+                
+                if result and len(result.strip()) > best_length:
+                    best_result = result
+                    best_config_name = config_name
+                    best_length = len(result.strip())
+                    
+            except Exception as e:
+                continue
+        
+        if best_result.strip():
+            print(f"   🎯 最佳配置: {best_config_name} (長度: {best_length})")
+        else:
+            print(f"   ❌ 所有配置都失敗")
+            
+        return best_result
+    
+    def fix_chinese_ocr_errors(self, text):
+        """修復繁體中文OCR常見錯誤（大幅增強版）"""
+        if not text:
+            return ""
+        
+        # 🔧 繁體中文OCR常見錯誤字典
+        chinese_corrections = {
+            # 基本錯誤修正
+            '報導組纖': '報導組織',
+            '組纖': '組織',
+            '纖': '織',
+            '稚華': '衝擊', 
+            '千擊': '衝擊',
+            '衝聲': '衝擊',
+            '衝繫': '衝擊',
+            '衝軗': '衝擊',
+            '衝坎': '衝擊',
+            '衝軟': '衝擊',
+            '衝傘': '衝擊',
+            '衝黎': '衝擊',
+            
+            # 關係人相關
+            '利客關係人': '利害關係人',
+            '利雪關係人': '利害關係人',
+            '關係入': '關係人',
+            
+            # 間接/直接
+            '閒接': '間接',
+            '閒接經濟': '間接經濟',
+            '直援': '直接',
+            
+            # 意涵/注意
+            '意售': '意涵',
+            '圖注': '關注',
+            '標竿': '標準',
+            '外部標': '外部標準',
+            '外部標生': '外部標準',
+            
+            # 嚴重/貧困
+            '戲重': '嚴重',
+            '發困': '貧困',
+            '戲重發困': '嚴重貧困',
+            
+            # 生產/章節
+            '章力': '生產力',
+            '生章力': '生產力',
+            '行葉': '行業',
+            
+            # 參與
+            '芭與': '參與',
+            '芭加': '參加',
+            
+            # 產生/誠生
+            '誠生': '產生',
+            '卉生': '產生',
+            '章生': '產生',
+            
+            # 衝擊/影響
+            '生器': '衝擊',
+            '影韓': '影響',
+            
+            # 數量/勞動
+            '勞履': '勞動',
+            '勞履數量': '勞動數量',
+            '若域': '該域',
+            
+            # 成長
+            '經濟成長': '經濟成長',
+            '成長或纖減': '成長或縮減',
+            '纖減': '縮減',
+            
+            # 技能/知識
+            '知謀': '知識',
+            '技能和知謀': '技能和知識',
+            
+            # 投資
+            '直援投資': '直接投資',
+            '外國直援投資': '外國直接投資',
+            
+            # 地區/區域
+            '地區': '地區',
+            '當地': '當地',
+            
+            # 標點符號修正
+            '. ': '。',
+            ', ': '，',
+            ': ': '：',
+            '; ': '；',
+            '? ': '？',
+            '! ': '！',
+            
+            # 特殊符號清理 (移除OCR雜訊)
+            'GERM': '',
+            'aml': '',
+            '$0': '',
+            'WE': '',
+            'AREEHHRANAERERAT': '',
+            'ARBARAM': '',
+            'TAR]': '',
+            'MHRA': '',
+            'FMR': '',
+            'AHR': '',
+            'ARE': '',
+            'BAMERALRPEGAADHOT': '',
+            'AHRT': '',
+            'FMR': '',
+            
+            # 常見詞語修正
+            '侵惠': '優惠',
+            '大點': '大眾',
+            '供應鍵': '供應鏈',
+            '銷售通路': '銷售通路',
+            '基礎設施': '基礎設施',
+            '服務時': '服務時',
+            '譚品': '產品',
+            
+            # 英文字母和數字混淆
+            'O': '0',  # 字母O -> 數字0
+            'I': '1',  # 字母I -> 數字1
+            'l': '1',  # 小寫l -> 數字1
+        }
+        
+        # 🔄 應用字典修正
+        corrected_text = text
+        corrections_applied = 0
+        
+        for wrong, correct in chinese_corrections.items():
+            if wrong in corrected_text:
+                old_text = corrected_text
+                corrected_text = corrected_text.replace(wrong, correct)
+                if corrected_text != old_text:
+                    corrections_applied += 1
+                    print(f"   🔧 修正: '{wrong}' -> '{correct}'")
+        
+        # 🧹 清理多餘的空格和標點
+        corrected_text = re.sub(r'\s+', ' ', corrected_text)  # 合併多個空格
+        corrected_text = re.sub(r'\s*([，。：；！？])\s*', r'\1', corrected_text)  # 移除標點前後空格
+        corrected_text = re.sub(r'([a-zA-Z0-9])\s+([a-zA-Z0-9])', r'\1\2', corrected_text)  # 移除英數字間空格
+        
+        # 🧹 移除奇怪的字符組合（OCR雜訊）
+        corrected_text = re.sub(r'[A-Z]{4,}', '', corrected_text)  # 移除4個以上連續大寫字母
+        corrected_text = re.sub(r'\b[A-Z]{2,3}\b', '', corrected_text)  # 移除2-3個大寫字母的詞
+        corrected_text = re.sub(r'[0-9]+[A-Z]+[0-9]+', '', corrected_text)  # 移除數字字母數字組合
+        
+        # 🧹 最終清理
+        corrected_text = re.sub(r'\s+', ' ', corrected_text).strip()
+        
+        print(f"🔧 總共應用了 {corrections_applied} 個修正")
+        
+        return corrected_text
     
     def clean_ocr_text(self, text):
         """清理Tesseract OCR提取的文字"""
@@ -968,7 +1207,7 @@ class GRIMarkdownToJsonConverter:
                 print(f"🔎 OCR結果長度: {len(extracted_text) if extracted_text else 0}")
                 
                 if extracted_text:
-                    # 將提取的文字格式化並替換圖片引用
+                    # 將提取的文字直接格式化並替換圖片引用
                     formatted_text = f"\n\n**[從圖片提取的文字]**\n{extracted_text}\n\n"
                     modified = True
                     
@@ -1501,56 +1740,102 @@ class GRIMarkdownToJsonConverter:
         return item, i
     
     def extract_simple_letter_items_from_ocr(self, ocr_text):
-        """從OCR文字中提取簡單的字母項目格式（a.、b.、c.等）"""
+        """從OCR文字中提取簡單的字母項目格式（a.、b.、c.等）- 增強版，支援跨行內容"""
         items = []
         
-        print(f"🔍 分析簡單字母格式項目...")
+        print(f"🔍 分析OCR文字中的字母格式項目...")
         
-        # 按行分割OCR文字進行處理
+        # 清理OCR文字，移除多餘空格和換行
+        cleaned_text = re.sub(r'\s+', ' ', ocr_text).strip()
+        print(f"🔍 清理後文字: {cleaned_text[:200]}...")
+        
+        # 方法1: 處理跨行項目 - 先按行分割，然後智能合併
         lines = ocr_text.split('\n')
+        current_item = None
+        current_letter = None
+        
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             
-            # 檢查是否是簡單的字母項目格式
-            # 支援: "a. 內容", "b. 內容" 等
-            simple_item_match = re.match(r'^([a-e])\.\s*(.+)', line)
-            if simple_item_match:
-                letter = simple_item_match.group(1)
-                content = simple_item_match.group(2).strip()
-                
-                # 清理內容
-                content = self.clean_text(content)
-                if len(content) > 10:  # 確保內容足夠長
-                    items.append({
-                        "letter": letter,
-                        "content": content
-                    })
-                    print(f"   📌 找到簡單項目 {letter}: {content[:50]}...")
-        
-        # 如果沒找到分行的格式，嘗試在整個文字中尋找
-        if not items:
-            # 使用正則表達式匹配所有a.、b.、c.格式
-            # 改進：使用更精確的正則表達式來分離項目
-            pattern = r'([a-e])\.\s*([^a-e\.]*?)(?=\s*[a-e]\.|$)'
-            matches = re.finditer(pattern, ocr_text, re.DOTALL)
+            print(f"🔍 分析行: {line}")
             
+            # 檢查是否是新項目開始（a. b. c. 等）
+            item_start_match = re.match(r'^([a-e])\.\s*(.+)', line)
+            if item_start_match:
+                # 如果之前有項目，先保存
+                if current_item and current_letter:
+                    content = self.clean_text(current_item)
+                    if len(content) > 5:
+                        items.append({
+                            "letter": current_letter,
+                            "content": content
+                        })
+                        print(f"   ✅ 保存項目 {current_letter}: {content[:50]}...")
+                
+                # 開始新項目
+                current_letter = item_start_match.group(1)
+                current_item = item_start_match.group(2)
+                print(f"   🎯 開始新項目 {current_letter}: {current_item[:50]}...")
+                continue
+            
+            # 檢查是否是項目的延續行
+            if current_item and current_letter:
+                # 跳過明顯的分隔行（如"指引"、"背景"等）
+                if re.search(r'^(指引|背景|建議|彙編要求)', line):
+                    print(f"   ⏹️  遇到分隔行，停止項目收集: {line}")
+                    break
+                
+                # 如果不是新項目開始，就是延續內容
+                if not re.match(r'^[a-e]\.\s*', line):
+                    current_item += " " + line
+                    print(f"   🔗 延續項目 {current_letter}: 添加 '{line[:30]}...'")
+                else:
+                    # 遇到新的字母項目，停止當前項目
+                    break
+        
+        # 保存最後一個項目
+        if current_item and current_letter:
+            content = self.clean_text(current_item)
+            if len(content) > 5:
+                items.append({
+                    "letter": current_letter,
+                    "content": content
+                })
+                print(f"   ✅ 保存最後項目 {current_letter}: {content[:50]}...")
+        
+        # 方法2: 如果上面的方法沒找到足夠項目，使用正則表達式回退方法
+        if len(items) < 2:
+            print("🔄 使用正則表達式回退方法...")
+            
+            # 使用更精確的正則表達式來匹配項目
+            # 支援項目內容跨行的情況
+            pattern = r'([a-e])\.\s*(.*?)(?=\s*[a-e]\.\s*|指引|背景|建議|$)'
+            matches = re.finditer(pattern, cleaned_text, re.DOTALL | re.IGNORECASE)
+            
+            backup_items = []
             for match in matches:
                 letter = match.group(1)
                 content = self.clean_text(match.group(2))
                 
-                # 進一步清理內容，移除下一個項目的開頭
-                content = re.sub(r'\s*[a-e]\.\s.*$', '', content, flags=re.DOTALL)
-                content = content.strip(' .，。')
+                # 進一步清理內容
+                content = re.sub(r'[。，]\s*$', '', content)  # 移除結尾標點
+                content = content.strip()
                 
                 if len(content) > 10:
-                    items.append({
+                    backup_items.append({
                         "letter": letter,
                         "content": content
                     })
-                    print(f"   📌 找到連續項目 {letter}: {content[:50]}...")
+                    print(f"   📌 正則找到項目 {letter}: {content[:50]}...")
+            
+            # 如果回退方法找到更多項目，使用回退結果
+            if len(backup_items) > len(items):
+                items = backup_items
+                print(f"   🔄 採用正則表達式結果（{len(backup_items)}項目）")
         
+        print(f"✅ 總共提取了 {len(items)} 個字母項目")
         return items
     
     def extract_disclosure_number_from_context_enhanced(self, lines, ocr_start_index):
