@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 專案特定檔案
+# 可以選擇忽略這些目錄，或保留範例檔案
+# input_pdf/
+# pdf_to_md/
+# output_json/
+
+# 臨時檔案
+*.tmp
+*.bak
+*.swp
+*.log
+
+# 大型PDF檔案（可選）
+*.pdf
+
+# OCR暫存檔案
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# 測試檔案
+test_*.py
+*_test.py 

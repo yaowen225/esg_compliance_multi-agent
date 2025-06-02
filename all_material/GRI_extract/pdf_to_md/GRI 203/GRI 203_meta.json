@@ -1,0 +1,123 @@
+{
+  "table_of_contents": [
+    {
+      "title": "2. \u4e3b\u984c\u63ed\u9732",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          54.90828040987253,
+          71.04393945634365
+        ],
+        [
+          168.74998474121094,
+          69.39940820634365
+        ],
+        [
+          168.74998474121094,
+          93.880859375
+        ],
+        [
+          54.90828040987253,
+          93.880859375
+        ]
+      ]
+    },
+    {
+      "title": "\u63ed\u9732\u9805\u76ee 203-2 \u986f\u8457\u7684\u9593\u63a5\u7d93\u6fdf\u885d\u64ca",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          144.75,
+          72.45721435546875
+        ],
+        [
+          403.5,
+          70.95648214221
+        ],
+        [
+          403.5,
+          89.7962646484375
+        ],
+        [
+          144.75,
+          90.73256263136864
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          93
+        ],
+        [
+          "Line",
+          25
+        ],
+        [
+          "ListItem",
+          10
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "ListGroup",
+          2
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          100
+        ],
+        [
+          "Line",
+          29
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "Figure",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data\\GRI 203"
+}

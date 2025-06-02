@@ -1,0 +1,19 @@
+# GRI PDF轉JSON轉換器 - 核心依賴套件
+# =====================================
+
+# OCR圖像識別功能（使用Tesseract）
+pytesseract>=0.3.10
+opencv-python-headless>=4.8.0
+Pillow>=9.0.0
+numpy>=1.21.0
+
+# PDF轉Markdown轉換（需要另外安裝）
+# marker-pdf>=0.2.15
+
+# =====================================
+# 安裝說明：
+# 1. 先安裝Tesseract執行檔（參考 TESSERACT_SETUP.md）
+# 2. 安裝Python套件：pip install -r requirements.txt
+# 3. 安裝marker：pip install marker-pdf
+# 4. 測試Tesseract：python -c "import pytesseract; print(pytesseract.get_tesseract_version())"
+# ===================================== 
