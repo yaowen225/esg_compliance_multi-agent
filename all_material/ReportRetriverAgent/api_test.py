@@ -1,9 +1,15 @@
 from openai import OpenAI
 import os
+from dotenv import load_dotenv
 
 def test_openai_api():
-    # 設定API金鑰
-    api_key = "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"
+    # 載入環境變數
+    load_dotenv()
+    
+    # 從環境變數讀取API金鑰
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("請在 .env 檔案中設定 OPENAI_API_KEY")
     
     try:
         # 初始化OpenAI客戶端
