@@ -7,7 +7,7 @@ input_folder = "C:\\Users\\USER\\Desktop\\code\\esg_compliance_multi-agent\\all_
 output_folder = "C:\\Users\\USER\\Desktop\\code\\esg_compliance_multi-agent\\all_material\\preprocessing_data\\output"    # 你的輸出資料夾名稱
 
 # 支援的檔案格式
-supported_formats = ['.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls', '.html', '.htm', '.txt']
+supported_formats = ['.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls']
 
 # 建立 MarkItDown 實例
 md = MarkItDown()
