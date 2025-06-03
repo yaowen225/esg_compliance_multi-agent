@@ -1,0 +1,103 @@
+# preprocessing_data:
+markitdown[all]
+
+# ----------------------------------------------------------------------------------------------------
+
+# extract_standards:
+# ==============================================
+# GRI PDF轉JSON轉換器 - Python依賴包
+# 版本: 2.0.0
+# 更新日期: 2024
+# ==============================================
+
+# ==== 核心OCR依賴 ====
+pytesseract>=0.3.10          # Tesseract OCR Python接口
+opencv-python-headless>=4.8.1 # 圖像處理和預處理
+pillow>=10.0.0               # 圖像格式處理
+numpy>=1.24.0                # 數值計算和陣列操作
+
+# ==== PDF處理依賴 ====
+marker-pdf>=0.2.15           # PDF轉Markdown轉換工具
+
+# ==== 系統依賴說明 ====
+# 注意：本項目還需要安裝系統級別的 Tesseract OCR
+# 
+# Windows 安裝方法（擇一）：
+#   方法1 - 官方安裝包（推薦）：
+#     1. 下載：https://github.com/UB-Mannheim/tesseract/wiki
+#     2. 執行：tesseract-ocr-w64-setup-v5.x.x.exe
+#     3. 安裝時勾選 "Chinese Traditional (chi_tra)" 語言包
+#
+#   方法2 - Chocolatey：
+#     choco install tesseract tesseract-chinese-traditional
+#
+#   方法3 - Conda：
+#     conda install -c conda-forge tesseract
+#
+# macOS 安裝方法：
+#   brew install tesseract tesseract-lang
+#
+# Linux (Ubuntu/Debian) 安裝方法：
+#   sudo apt-get install tesseract-ocr tesseract-ocr-chi-tra
+
+# ==== 安裝驗證 ====
+# 執行以下命令驗證安裝是否成功：
+#
+# 1. 檢查 Tesseract 版本：
+#    Windows: "C:\Program Files\Tesseract-OCR\tesseract.exe" --version
+#    macOS/Linux: tesseract --version
+#
+# 2. 檢查可用語言包：
+#    Windows: "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs
+#    macOS/Linux: tesseract --list-langs
+#    （輸出應包含 'chi_tra' 和 'eng'）
+#
+# 3. 測試 Python 整合：
+#    python -c "import pytesseract; print('✅ OCR環境就緒:', pytesseract.get_languages())"
+
+# ==== 完整安裝流程 ====
+# 1. 安裝系統級 Tesseract OCR（參考上述說明）
+# 2. 創建虛擬環境：python -m venv gri_env
+# 3. 啟動虛擬環境：gri_env\Scripts\activate (Windows) 或 source gri_env/bin/activate (macOS/Linux)
+# 4. 升級 pip：python -m pip install --upgrade pip
+# 5. 安裝依賴：pip install -r requirements.txt
+# 6. 驗證安裝：python -c "import pytesseract, cv2, numpy, PIL; print('✅ 所有依賴安裝成功')"
+
+# ==== 開發依賴（可選） ====
+# 取消註解以下行來安裝開發工具：
+# pytest>=7.4.0              # 單元測試框架
+# black>=23.0.0               # 代碼格式化工具
+# flake8>=6.0.0               # 代碼風格檢查
+# mypy>=1.5.0                 # 型別檢查工具
+
+# ==== 相容性說明 ====
+# Python 版本要求：3.8+（建議 3.9+）
+# 作業系統：Windows 10/11, macOS 10.15+, Ubuntu 20.04+
+# 記憶體需求：最少 4GB（建議 8GB+，處理大型圖片時）
+# 硬碟空間：至少 2GB（含 Tesseract 和語言包） 
+
+# ----------------------------------------------------------------------------------------------------
+
+# retrieve_reports:
+openai>=1.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+json5>=0.9.14 
+# ----------------------------------------------------------------------------------------------------
+
+# check_compliance:
+# ────────────── core ──────────────
+pyautogen==0.4.*        # Microsoft AutoGen v0.4（含 autogen_core / agentchat / ext）
+openai>=1.17.0          # OpenAI Python SDK（pyautogen 仍會間接用到）
+
+# ────────────── async MySQL ──────────────
+aiomysql>=0.2.0,<1.0    # 非同步 MySQL driver，適用 PyMySQL 後端
+
+# ────────────── utilities ──────────────
+python-dotenv>=1.0.0    # 載入 .env 檔
+
+# ────────────── type / validation ──────────────
+pydantic>=2.5            # AutoGen v0.4 依賴 Pydantic v2
+typing-extensions>=4.10  # 低版本 Python 需要補充型別
+
+# ----------------------------------------------------------------------------------------------------
