@@ -33,16 +33,28 @@ class OpenAIEmbeddingFunction:
 
 # 建立向量資料庫結構
 def setup_collection():
-    client = chromadb.Client()
+    # 設定資料庫路徑
+    db_path = os.path.join(os.path.dirname(__file__), "chroma_db")
     
-    # 創建 OpenAI embedding 函數
-    embedding_function = OpenAIEmbeddingFunction()
+    # 建立 ChromaDB 客戶端，指定持久化路徑
+    client = chromadb.PersistentClient(path=db_path)
     
-    collection = client.create_collection(
-        name="esg_gri_collection",
-        embedding_function=embedding_function,
-        metadata={"description": "ESG報告水資源管理段落與GRI準則對應"}
-    )
+    try:
+        # 嘗試獲取已存在的集合
+        collection = client.get_collection(
+            name="esg_gri_collection",
+            embedding_function=OpenAIEmbeddingFunction()
+        )
+        print(f"已載入現有的向量資料庫，路徑：{db_path}")
+    except Exception as e:
+        # 如果集合不存在，創建新的集合
+        print(f"建立新的向量資料庫，路徑：{db_path}")
+        collection = client.create_collection(
+            name="esg_gri_collection",
+            embedding_function=OpenAIEmbeddingFunction(),
+            metadata={"description": "ESG報告水資源管理段落與GRI準則對應"}
+        )
+    
     return collection
 
 def add_esg_report_content(collection, report_content, metadata, index):
@@ -64,7 +76,73 @@ def add_esg_report_content(collection, report_content, metadata, index):
         ids=[f"{metadata['company']}_{metadata['report_year']}_{metadata.get('section', 'unknown')}_{index}"]
     )
 
-def query_by_gri_standard(collection, query_text, n_results=3):
+def optimize_query_with_llm(query_text):
+    """
+    使用 LLM 優化查詢文本
+    
+    參數:
+    - query_text: 原始查詢文本
+    
+    返回:
+    - 優化後的查詢文本
+    """
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = f"""
+        你是一個專業的ESG報告分析助手。以下的查詢文本是GRI準則的內容，我們的目的是要利用這個文本，將它當作QUERY去檢索esg報告書確保是否有符合的內容，所以請幫我優化這個文本，使其更適合用於搜尋ESG報告中的相關內容。
+        請保持原始查詢的核心意圖，但使用更精確和專業的詞彙。
+        
+        原始查詢：{query_text}
+        
+        請直接返回優化後的查詢文本，不需要其他說明。
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "你是一個專業的ESG報告分析助手，負責優化查詢文本。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3
+        )
+        
+        optimized_query = response.choices[0].message.content.strip()
+        return optimized_query
+    except Exception as e:
+        print(f"LLM優化查詢時發生錯誤: {str(e)}")
+        return query_text
+
+def filter_results_by_relevance(results, threshold=0.8):
+    """
+    根據相關性分數過濾查詢結果
+    
+    參數:
+    - results: 查詢結果
+    - threshold: 相關性閾值
+    
+    返回:
+    - 過濾後的結果
+    """
+    if not results["documents"] or not results["distances"]:
+        return results
+    
+    filtered_docs = []
+    filtered_distances = []
+    
+    for doc, distance in zip(results["documents"][0], results["distances"][0]):
+        # 將距離轉換為相關性分數 (0-1)
+        relevance_score = 1 - (distance / 2)  # 假設最大距離為2
+        
+        if relevance_score >= threshold:
+            filtered_docs.append(doc)
+            filtered_distances.append(distance)
+    
+    return {
+        "documents": [filtered_docs],
+        "distances": [filtered_distances]
+    }
+
+def query_by_gri_standard(collection, query_text, n_results=5):
     """
     根據GRI準則查詢相關的報告書段落
     
@@ -77,18 +155,28 @@ def query_by_gri_standard(collection, query_text, n_results=3):
     - 符合條件的報告書段落列表
     """
     try:
-        # 優化查詢文本
-        query_text = re.sub(r'[，。、；：！？]', ' ', query_text)
-        query_text = re.sub(r'\s+', ' ', query_text).strip()
+        # 使用 LLM 優化查詢文本
+        optimized_query = optimize_query_with_llm(query_text)
         
-        print(f"\n執行查詢: {query_text[:50]}...")
+        # 優化查詢文本格式
+        optimized_query = re.sub(r'[，。、；：！？]', ' ', optimized_query)
+        optimized_query = re.sub(r'\s+', ' ', optimized_query).strip()
+        
+        print(f"\n原始查詢: {query_text}")
+        print(f"優化後查詢: {optimized_query}")
+        
+        # 執行查詢
         results = collection.query(
-            query_texts=[query_text],
-            n_results=n_results,
-            include=["documents", "distances"]
+            query_texts=[optimized_query],
+            include=["documents", "distances"],
+            n_results=n_results
         )
-        print(f"查詢結果數量: {len(results['documents'][0])}")
-        return results
+        
+        # 過濾結果
+        filtered_results = filter_results_by_relevance(results)
+        
+        print(f"查詢結果數量: {len(filtered_results['documents'][0])}")
+        return filtered_results
     except Exception as e:
         print(f"查詢時發生錯誤: {str(e)}")
         return {"documents": [[]], "distances": [[]]}
@@ -226,7 +314,7 @@ def add_esg_report_to_db(collection, md_file, metadata):
     
     print(f"已將 {len(paragraphs)} 個段落添加到資料庫")
 
-if __name__ == "__main__":
+def ReportRetriverAgent():
 
     # 初始化集合
     collection = setup_collection()
@@ -252,3 +340,6 @@ if __name__ == "__main__":
     with open("real_output.json", 'w', encoding='utf-8') as f:
         json.dump(output_data, f, ensure_ascii=False, indent=2)
     print("程式執行完成")
+
+if __name__ == "__main__":
+    ReportRetriverAgent()
