@@ -278,7 +278,10 @@ def process_markdown_content(md_content):
         # 合併相關的段落
         current_paragraph = []
         for line in lines:
-
+            tmp_text = ' '.join(current_paragraph)
+            if len(tmp_text)+len(line) >= 8100:
+                cleaned_paragraphs.append(' '.join(current_paragraph))
+                current_paragraph = [line]
             # 如果遇到句號、問號或驚嘆號，可能是段落結束
             if re.search(r'[。？！]$', line):
                 current_paragraph.append(line)
@@ -341,7 +344,7 @@ def ReportRetriverAgent():
     
     # 處理GRI準則並查詢相關內容
     print("\n開始處理GRI準則...")
-    output_data = process_gri_standards("data\gri_json\GRI 203_converted.json", collection)
+    output_data = process_gri_standards("data/gri_json/GRI 203_converted.json", collection)
     
     # 將結果寫入輸出檔案
     print("\n將結果寫入檔案...")

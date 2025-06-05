@@ -565,14 +565,18 @@ class App(ctk.CTk):
         # 建立 ChromaDB 客戶端，指定持久化路徑
         client = chromadb.PersistentClient(path=db_path)
         
-        try:
-            # 嘗試獲取已存在的集合
+        # 檢查集合是否存在
+        collections = client.list_collections()
+        collection_exists = any(col.name == "esg_gri_collection" for col in collections)
+        
+        if collection_exists:
+            # 如果集合存在，直接獲取
             collection = client.get_collection(
                 name="esg_gri_collection",
                 embedding_function=OpenAIEmbeddingFunction()
             )
             print(f"已載入現有的向量資料庫，路徑：{db_path}")
-        except Exception as e:
+        else:
             # 如果集合不存在，創建新的集合
             print(f"建立新的向量資料庫，路徑：{db_path}")
             collection = client.create_collection(
@@ -607,7 +611,8 @@ class App(ctk.CTk):
     
         # 將結果寫入輸出檔案
         self.append_progress_message("\n將結果寫入檔案...")
-        with open(f"data/content_pair/{report_name}_{gri_name}.json", encoding='utf-8') as f:
+        output_path = os.path.join('C:/Users/User/Documents/GitHub/esg_compliance_multi-agent/data/content_pair/', f'{report_name}_{gri_name}.json')
+        with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
             
         self.append_progress_message("RAG搜尋完成")
@@ -696,7 +701,7 @@ class App(ctk.CTk):
                 self.append_progress_message(f"處理中: 準則 - {os.path.basename(file_path)}...")
                 self.move_file_to_folder(file_path, 'data/gri_pdf')
             
-            self.gri_to_json()
+            # self.gri_to_json()
 
             # 讀取和處理報告書
             for i, file_path in enumerate(self.selected_files2):
