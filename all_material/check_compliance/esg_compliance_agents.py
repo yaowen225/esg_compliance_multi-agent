@@ -23,7 +23,7 @@ MYSQL_CONFIG = dict(
     db="esg_reports", autocommit=True, charset="utf8mb4",
 )
 
-TEST_PAIRS_JSON      = "test_pairs.json"
+TEST_PAIRS_JSON      = "all_material/check_compliance/test_pairs.json"
 TEST_EXCEL_OUTPUT    = "compliance_summary_report.xlsx"
 MODEL_NAME           = "gpt-4.1"
 

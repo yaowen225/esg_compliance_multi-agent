@@ -15,6 +15,9 @@ class OpenAIEmbeddingFunction:
         self.client = OpenAI(api_key=self.api_key)
         self.model = model
 
+    def name(self):
+        return "openai"
+
     def __call__(self, input):
         # 確保輸入是列表
         if isinstance(input, str):
@@ -39,14 +42,18 @@ def setup_collection():
     # 建立 ChromaDB 客戶端，指定持久化路徑
     client = chromadb.PersistentClient(path=db_path)
     
-    try:
-        # 嘗試獲取已存在的集合
+    # 檢查集合是否存在
+    collections = client.list_collections()
+    collection_exists = any(col.name == "esg_gri_collection" for col in collections)
+    
+    if collection_exists:
+        # 如果集合存在，直接獲取
         collection = client.get_collection(
             name="esg_gri_collection",
             embedding_function=OpenAIEmbeddingFunction()
         )
         print(f"已載入現有的向量資料庫，路徑：{db_path}")
-    except Exception as e:
+    else:
         # 如果集合不存在，創建新的集合
         print(f"建立新的向量資料庫，路徑：{db_path}")
         collection = client.create_collection(
@@ -328,12 +335,13 @@ def ReportRetriverAgent():
     }
     
     # 將ESG報告書內容添加到資料庫
-    add_esg_report_to_db(collection, "marker方法/部分之ESG報告書/esg_report.md", report_metadata)
+    report_path = os.path.join(os.path.dirname(__file__), "marker方法", "部分之ESG報告書", "esg_report.md")
+    add_esg_report_to_db(collection, report_path, report_metadata)
     print("ESG報告書內容已添加到資料庫")
     
     # 處理GRI準則並查詢相關內容
     print("\n開始處理GRI準則...")
-    output_data = process_gri_standards("input.json", collection)
+    output_data = process_gri_standards("data\gri_json\GRI 203_converted.json", collection)
     
     # 將結果寫入輸出檔案
     print("\n將結果寫入檔案...")
