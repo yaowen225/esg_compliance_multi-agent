@@ -87,8 +87,8 @@ json5>=0.9.14
 
 # check_compliance:
 # ────────────── core ──────────────
-pyautogen==0.4.*        # Microsoft AutoGen v0.4（含 autogen_core / agentchat / ext）
-openai>=1.17.0          # OpenAI Python SDK（pyautogen 仍會間接用到）
+ag2==0.4.*        # Microsoft AutoGen v0.4（含 autogen_core / agentchat / ext）
+openai>=1.17.0          # OpenAI Python SDK（ag2 仍會間接用到）
 
 # ────────────── async MySQL ──────────────
 aiomysql>=0.2.0,<1.0    # 非同步 MySQL driver，適用 PyMySQL 後端
